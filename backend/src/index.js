@@ -11,20 +11,18 @@ const campaignsRouter = require('./routes/campaigns');
 const startScheduler = require('./services/scheduler');
 
 const app = express();
+// Usa a porta que o Railway define em PORT
 const PORT = process.env.PORT || 3001;
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Servir arquivos estáticos de uploads para preview de imagens
-// Assumimos que a pasta uploads está em <project_root>/uploads
+// Servir uploads (imagens) em produção
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Rotas públicas
+// Rotas públicas e protegidas
 app.use('/api/auth', authRouter);
-
-// Rotas protegidas de campanhas
 app.use('/api/campaigns', authenticateToken, campaignsRouter);
 
 // Health check
