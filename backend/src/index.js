@@ -27,7 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 // Servir uploads se necessário (cuidado: efêmero em produção)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Rotas da API: usar paths relativos
+// Rotas da API: usar paths relativos. NÃO use URL completa aqui.
 app.use('/api/auth', authRouter);
 app.use('/api/campaigns', authenticateToken, campaignsRouter);
 
