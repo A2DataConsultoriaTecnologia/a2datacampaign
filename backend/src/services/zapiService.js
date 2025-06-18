@@ -1,4 +1,5 @@
 // backend/src/services/zapiService.js
+console.log('ZAPI URLs:', ZAPI_URL_TEXT, ZAPI_URL_IMAGE);
 const axios = require('axios');
 require('dotenv').config();
 
