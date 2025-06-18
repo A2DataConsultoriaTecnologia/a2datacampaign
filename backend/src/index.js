@@ -11,28 +11,64 @@ const startScheduler = require('./services/scheduler');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS: permitir apenas o frontend configurado em env
+// Logar valor de FRONTEND_URL para garantir que não está incorreto
+console.log('FRONTEND_URL=', process.env.FRONTEND_URL);
+
+// CORS
 const corsOptions = {
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
   credentials: true
 };
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // responder preflight para todas rotas
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir uploads se necessário (cuidado: efêmero em produção)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Rotas da API: usar paths relativos. NÃO use URL completa aqui.
-app.use('/api/auth', authRouter);
-app.use('/api/campaigns', authenticateToken, campaignsRouter);
+// Envolver app.use em try/catch para identificar falha
+try {
+  console.log('Registrando rota /api/auth');
+  app.use('/api/auth', authRouter);
+  // Se authRouter tiver rota inválida, aqui capturamos
+} catch (e) {
+  console.error('Erro ao registrar /api/auth:', e);
+}
+try {
+  console.log('Registrando rota /api/campaigns');
+  app.use('/api/campaigns', authenticateToken, campaignsRouter);
+} catch (e) {
+  console.error('Erro ao registrar /api/campaigns:', e);
+}
 
-// Health check
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+try {
+  console.log('Registrando rota /health');
+  app.get('/health', (req, res) => res.json({ status: 'ok' }));
+} catch (e) {
+  console.error('Erro ao registrar /health:', e);
+}
+
+// Após montar rotas, liste paths para depurar
+function listRoutes() {
+  if (!app._router) return;
+  console.log('Rotas registradas:');
+  app._router.stack.forEach(mw => {
+    if (mw.route) {
+      // rota direta
+      console.log(Object.keys(mw.route.methods).join(','), mw.route.path);
+    } else if (mw.name === 'router') {
+      mw.handle.stack.forEach(handler => {
+        if (handler.route) {
+          console.log(Object.keys(handler.route.methods).join(','), handler.route.path);
+        }
+      });
+    }
+  });
+}
+listRoutes();
 
 app.listen(PORT, () => {
   console.log(`Backend rodando na porta ${PORT}`);
