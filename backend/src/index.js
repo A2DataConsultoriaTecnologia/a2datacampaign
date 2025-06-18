@@ -11,31 +11,31 @@ const startScheduler = require('./services/scheduler');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Configurar CORS:
-// - Em produção, FRONTEND_URL será algo como 'https://frontend-xyz.up.railway.app'.
-// - Em local, usar fallback 'http://localhost:5173'.
+// CORS: permitir apenas o frontend
 const corsOptions = {
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 };
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // garantir preflight
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Servir uploads (se usar):
+// Servir uploads, se usar
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Rotas públicas e protegidas:
+// Rotas: prefixo "/api"
 app.use('/api/auth', authRouter);
 app.use('/api/campaigns', authenticateToken, campaignsRouter);
 
-// Health check:
+// Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.listen(PORT, () => {
   console.log(`Backend rodando na porta ${PORT}`);
-  if (typeof startScheduler === 'function') {
-    startScheduler();
-  }
+  // Inicie scheduler só após conexão ao banco OK
+  startScheduler();
 });

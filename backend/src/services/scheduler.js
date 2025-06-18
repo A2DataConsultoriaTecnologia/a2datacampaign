@@ -18,11 +18,12 @@ async function checkAndSendCampaigns() {
     );
     const campaigns = res.rows;
     if (campaigns.length === 0) {
+      console.log('[Scheduler] Nenhuma campanha pendente.');
       return;
     }
     for (const campaign of campaigns) {
       console.log(`[Scheduler] Enviando campanha id=${campaign.id}, title="${campaign.title}"`);
-      // Buscar números
+      // Buscar números associados
       const resNums = await client.query(
         `SELECT id, phone_number 
          FROM campaign_numbers 
@@ -37,37 +38,27 @@ async function checkAndSendCampaigns() {
          WHERE campaign_id = $1`,
         [campaign.id]
       );
-      const medias = resMedia.rows; // array de {id, filename, filepath, mime_type}
-      // Para cada número:
+      const medias = resMedia.rows;
       for (const cn of numbers) {
         let overallSuccess = true;
         let lastMessageId = null;
-
-        // 1) Se houver mídias, enviar cada imagem
+        // Enviar mídias se existirem
         if (medias.length > 0) {
           for (let i = 0; i < medias.length; i++) {
             const m = medias[i];
             try {
-              // Montar caminho absoluto para ler arquivo
               let absolutePath;
               if (path.isAbsolute(m.filepath)) {
                 absolutePath = m.filepath;
               } else {
                 absolutePath = path.join(__dirname, '..', '..', m.filepath);
               }
-              // Ler arquivo
               const fileBuffer = fs.readFileSync(absolutePath);
-              // Converter para base64 data URI
               const base64 = `data:${m.mime_type};base64,${fileBuffer.toString('base64')}`;
-              // Caption: inclui título + mensagem somente na primeira imagem
-              const titleText = campaign.title || '';
-              const messageText = campaign.message || '';
-              // Monta legenda com Markdown para negrito de título
               const caption = (i === 0)
-                ? `*${titleText}*\n\n${messageText}`
+                ? `*${campaign.title || ''}*\n\n${campaign.message || ''}`
                 : '';
               const { success, data, error } = await sendWhatsAppImage(cn.phone_number, base64, caption);
-              const nowSent = new Date();
               lastMessageId = data?.messageId || data?.id || null;
               if (!success) {
                 overallSuccess = false;
@@ -81,14 +72,11 @@ async function checkAndSendCampaigns() {
             }
           }
         }
-        // 2) Se não tiver mídia, enviar texto puro, incluindo título
+        // Enviar texto se não houver mídia
         if (medias.length === 0) {
           try {
-            const titleText = campaign.title || '';
-            const messageText = campaign.message || '';
-            const fullText = `*${titleText}*\n\n${messageText}`;
+            const fullText = `*${campaign.title || ''}*\n\n${campaign.message || ''}`;
             const { success, data, error } = await sendWhatsAppMessage(cn.phone_number, fullText);
-            const nowSent = new Date();
             lastMessageId = data?.messageId || data?.id || null;
             if (!success) {
               overallSuccess = false;
@@ -101,8 +89,7 @@ async function checkAndSendCampaigns() {
             console.error(`  [!] Erro ao enviar texto p/ ${cn.phone_number}:`, err);
           }
         }
-
-        // 3) Atualizar registro campaign_numbers
+        // Atualizar status em campaign_numbers
         try {
           const nowSentAll = new Date();
           await client.query(
@@ -115,7 +102,7 @@ async function checkAndSendCampaigns() {
           console.error(`  [!] Erro ao atualizar status no DB para ${cn.phone_number}:`, err);
         }
       }
-      // Após processar todos os números, atualizar status da campanha
+      // Atualizar status da campanha
       try {
         await client.query(
           `UPDATE campaigns 
@@ -136,7 +123,6 @@ async function checkAndSendCampaigns() {
 }
 
 function startScheduler() {
-  // Agenda para rodar a cada minuto. Ajuste conforme necessidade.
   cron.schedule('* * * * *', () => {
     checkAndSendCampaigns();
   });
