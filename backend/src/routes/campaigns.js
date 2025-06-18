@@ -11,11 +11,12 @@ const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL || '';
 // Helper para montar URL pública de mídia a partir do filepath salvo
 function montaUrlDeArquivo(filepath) {
   if (!filepath) return null;
-  let base = BACKEND_BASE_URL.replace(/\/+$/, '');
+  let base = (process.env.BACKEND_BASE_URL || '').replace(/\/+$/, '');
   let url = `${base}/${filepath}`.replace(/\/+/g, '/');
   url = url.replace('http:/', 'http://').replace('https:/', 'https://');
   return url;
 }
+
 
 // POST /api/campaigns
 router.post('/', upload.array('images', 5), async (req, res) => {
