@@ -1,24 +1,28 @@
 // frontend/src/services/api.js
 import axios from 'axios';
 
-// URL base da API (front-end Vite: define em .env local VITE_API_URL, ex: VITE_API_URL=http://localhost:3001/api)
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// 1) Nome da variável de ambiente: VITE_API_BASE_URL.
+//    Localmente: frontend/.env deve ter:
+//      VITE_API_BASE_URL=http://localhost:3001/api
+//    Em produção (Railway): VITE_API_BASE_URL=https://<seu-backend>.up.railway.app/api
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 const api = axios.create({
-  baseURL: API_URL
+  baseURL: API_BASE_URL
 });
 
-// Interceptor para inserir token JWT
+// Interceptor para inserir token JWT em todas as requisições
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  // Se o data for FormData, axios detecta e coloca o Content-Type multipart/form-data com boundary
   return config;
 }, error => Promise.reject(error));
 
+// Endpoints de autenticação
 export function login(payload) {
+  // payload: { email, password } conforme seu backend
   return api.post('/auth/login', payload);
 }
 
@@ -26,17 +30,12 @@ export function getProfile() {
   return api.get('/auth/me');
 }
 
-/**
- * Cria campanha. Se payload for FormData, envie multipart/form-data; 
- * caso contrário, JSON puro.
- * Você pode chamar createCampaign(formData, true) ou simplesmente createCampaign(formData).
- */
+// Endpoints de campanhas
 export function createCampaign(payload) {
-  // Se for FormData, não precisamos ajustar cabeçalho manualmente; axios detecta.
+  // Se payload for FormData, axios define Content-Type multipart/form-data
   if (payload instanceof FormData) {
     return api.post('/campaigns', payload);
   }
-  // JSON puro
   return api.post('/campaigns', payload);
 }
 
