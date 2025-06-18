@@ -7,25 +7,31 @@ const app = express();
 
 // Variáveis de ambiente
 const PORT = process.env.PORT || 3001;
-// Deve ser exatamente a URL do frontend (sem barra final), ex: https://meu-frontend.up.railway.app
+const HOST = '0.0.0.0';
+// Defina FRONTEND_URL no Railway (ex: https://seu-frontend.up.railway.app)
+// Em dev local, pode ser http://localhost:5173
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-// Middleware CORS: permite apenas FRONTEND_URL
+// CORS: ajustar origin conforme necessário
 app.use(cors({
   origin: FRONTEND_URL,
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization'],
   credentials: true
 }));
-// Habilitar preflight para todas as rotas
-app.options('*', cors());
+app.options('*', cors()); // preflight
 
 // Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir uploads (se usar)
+// Servir uploads, se usar
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+// Health check (antes do fallback)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'UP' });
+});
 
 // Rotas da API
 try {
@@ -42,17 +48,15 @@ try {
   console.error('Erro ao registrar /api/campaigns:', e);
 }
 
-// Health check
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
-
-// Rota fallback (Express 5 requer coringa nomeado)
-app.all('/*splat', (req, res) => {
+// Fallback para rotas não definidas: usar regex em vez de '*'
+app.all(/.*/, (req, res) => {
   res.status(404).json({ message: `Rota ${req.originalUrl} não existe.` });
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend rodando na porta ${PORT}`);
-  // Iniciar scheduler se desejar
+// Iniciar servidor escutando em host 0.0.0.0 e porta correta
+app.listen(PORT, HOST, () => {
+  console.log(`Backend rodando na porta ${PORT} (host ${HOST})`);
+  // Iniciar scheduler, se aplicável
   try {
     const startScheduler = require('./services/scheduler');
     startScheduler();
