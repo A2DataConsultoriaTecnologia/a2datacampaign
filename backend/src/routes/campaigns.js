@@ -7,9 +7,7 @@ const upload = require('../utils/fileUpload');
 const fs = require('fs');
 const path = require('path');
 
-// Para montar URL de preview: use BACKEND_BASE_URL no .env, ex: http://localhost:3001
 const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL || '';
-
 // Helper para montar URL pública de mídia a partir do filepath salvo (relativo em uploads/)
 function montaUrlDeArquivo(filepath) {
   if (!filepath) return null;

@@ -11,7 +11,7 @@ const startScheduler = require('./services/scheduler');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS: permitir apenas o frontend
+// CORS: permitir apenas o frontend configurado em env
 const corsOptions = {
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -19,15 +19,15 @@ const corsOptions = {
   credentials: true
 };
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // garantir preflight
+app.options('*', cors(corsOptions)); // responder preflight para todas rotas
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir uploads, se usar
+// Servir uploads se necessário (cuidado: efêmero em produção)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Rotas: prefixo "/api"
+// Rotas da API: usar paths relativos
 app.use('/api/auth', authRouter);
 app.use('/api/campaigns', authenticateToken, campaignsRouter);
 
@@ -36,6 +36,5 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.listen(PORT, () => {
   console.log(`Backend rodando na porta ${PORT}`);
-  // Inicie scheduler só após conexão ao banco OK
   startScheduler();
 });
