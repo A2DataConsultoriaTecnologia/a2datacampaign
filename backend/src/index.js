@@ -3,78 +3,60 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-console.log('Iniciando backend...');
-console.log('FRONTEND_URL=', process.env.FRONTEND_URL);
-
 const app = express();
 
-// CORS
-const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+// Variáveis de ambiente
+const PORT = process.env.PORT || 3001;
+// Deve ser exatamente a URL do frontend (sem barra final), ex: https://meu-frontend.up.railway.app
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+// Middleware CORS: permite apenas FRONTEND_URL
+app.use(cors({
+  origin: FRONTEND_URL,
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization'],
   credentials: true
-};
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+}));
+// Habilitar preflight para todas as rotas
+app.options('*', cors());
 
+// Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir uploads
+// Servir uploads (se usar)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Registrar rotas dentro de try/catch
+// Rotas da API
 try {
-  console.log('Registrando rota /api/auth');
   const authRouter = require('./routes/auth');
   app.use('/api/auth', authRouter);
 } catch (e) {
   console.error('Erro ao registrar /api/auth:', e);
 }
 try {
-  console.log('Registrando rota /api/campaigns');
   const authenticateToken = require('./utils/authMiddleware');
   const campaignsRouter = require('./routes/campaigns');
   app.use('/api/campaigns', authenticateToken, campaignsRouter);
 } catch (e) {
   console.error('Erro ao registrar /api/campaigns:', e);
 }
-try {
-  console.log('Registrando rota /health');
-  app.get('/health', (req, res) => res.json({ status: 'ok' }));
-} catch (e) {
-  console.error('Erro ao registrar /health:', e);
-}
 
-// Listar rotas para depuração
-function listRoutes() {
-  if (!app._router) {
-    console.log('Nenhum router disponível');
-    return;
-  }
-  console.log('Rotas registradas:');
-  app._router.stack.forEach(mw => {
-    if (mw.route) {
-      console.log(Object.keys(mw.route.methods).join(','), mw.route.path);
-    } else if (mw.name === 'router') {
-      mw.handle.stack.forEach(handler => {
-        if (handler.route) {
-          console.log(Object.keys(handler.route.methods).join(','), handler.route.path);
-        }
-      });
-    }
-  });
-}
-listRoutes();
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-const PORT = process.env.PORT || 3001;
+// Rota fallback (Express 5 requer coringa nomeado)
+app.all('/*splat', (req, res) => {
+  res.status(404).json({ message: `Rota ${req.originalUrl} não existe.` });
+});
+
 app.listen(PORT, () => {
   console.log(`Backend rodando na porta ${PORT}`);
+  // Iniciar scheduler se desejar
   try {
     const startScheduler = require('./services/scheduler');
     startScheduler();
-  } catch(err) {
+  } catch (err) {
     console.error('Erro ao iniciar scheduler:', err);
   }
 });
