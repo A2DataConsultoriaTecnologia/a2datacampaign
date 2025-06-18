@@ -1,0 +1,33 @@
+{
+  "services": [
+    {
+      "name": "backend",
+      "path": "backend",
+      "build": {
+        "builder": "nixpacks",
+        "command": "npm install"
+      },
+      "start": {
+        "command": "npm run start"
+      },
+      "healthcheck": {
+        "path": "/health",
+        "timeout": 300
+      }
+    },
+    {
+      "name": "frontend",
+      "path": "frontend",
+      "build": {
+        "builder": "nixpacks",
+        "command": "npm install && npm run build"
+      },
+      "start": {
+        "command": "npm run start"
+      },
+      "proxy": {
+        "port": "$PORT"
+      }
+    }
+  ]
+}
