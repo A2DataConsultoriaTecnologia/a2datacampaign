@@ -254,7 +254,7 @@ export default function CampaignList({ reloadFlag }) {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="testando..."
+              placeholder="Digite o titulo da campanha..."
               className={styles.searchInput}
             />
           </div>
