@@ -2,6 +2,7 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import HelpModal from './HelpModal';
 import '../styles/Header.css';
 
 const Header = () => {
@@ -13,9 +14,15 @@ const Header = () => {
   const navRef = useRef(null);
   const campaignRef = useRef(null);
   const agendRef = useRef(null);
-  const [sliderStyle, setSliderStyle] = useState({ left: 0, width: 0 });
+  const dropdownRef = useRef(null);
 
-  // Determinar rota ativa: retorna 'campaign' ou 'agendamentos'
+  // Slider de navegação
+  const [sliderStyle, setSliderStyle] = useState({ left: 0, width: 0 });
+  // Dropdown e modal de feedback
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+
+  // Determinar rota ativa
   const getActiveRoute = () => {
     if (location.pathname.startsWith('/campaign')) return 'campaign';
     if (location.pathname.startsWith('/agendamentos')) return 'agendamentos';
@@ -26,12 +33,7 @@ const Header = () => {
   // Atualiza posição do slider sempre que a rota muda ou janela redimensiona
   useEffect(() => {
     const updateSlider = () => {
-      let refEl = null;
-      if (activeRoute === 'campaign') {
-        refEl = campaignRef.current;
-      } else if (activeRoute === 'agendamentos') {
-        refEl = agendRef.current;
-      }
+      let refEl = activeRoute === 'campaign' ? campaignRef.current : agendRef.current;
       if (refEl && navRef.current) {
         const parentRect = navRef.current.getBoundingClientRect();
         const rect = refEl.getBoundingClientRect();
@@ -46,78 +48,110 @@ const Header = () => {
     return () => window.removeEventListener('resize', updateSlider);
   }, [activeRoute]);
 
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = e => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowHelpMenu(false);
+      }
+    };
+    if (showHelpMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showHelpMenu]);
+
+  const toggleHelpMenu = () => setShowHelpMenu(prev => !prev);
+  const handleFeedbackClick = () => {
+    setShowHelpModal(true);
+    setShowHelpMenu(false);
+  };
+
   const handleLogout = () => {
     logout();
-    // navigate('/login') já feito no logout do contexto
+    // O redirecionamento para /login já é tratado pelo contexto
   };
 
   return (
-    <header className="modern-header">
-      <div className="header-container">
-        {/* Logo e Título */}
-        <div className="header-brand">
-          <div className="brand-text">
-            <h1 className="brand-title">A2DataAutomate</h1>
-            <span className="brand-subtitle">Sistema de Campanhas</span>
+    <>
+      <header className="modern-header">
+        <div className="header-container">
+          {/* Logo e Título */}
+          <div className="header-brand">
+            <div className="brand-text">
+              <h1 className="brand-title">A2DataAutomate</h1>
+              <span className="brand-subtitle">Sistema de Campanhas</span>
+            </div>
+          </div>
+
+          {/* Navegação */}
+          <nav className="header-nav" ref={navRef}>
+            <div className="nav-slider" style={sliderStyle} />
+            <button
+              ref={campaignRef}
+              className={`nav-item ${activeRoute === 'campaign' ? 'active' : ''}`}
+              onClick={() => navigate('/campaign')}
+            >
+              <span className="nav-text">Campanhas</span>
+            </button>
+            <button
+              ref={agendRef}
+              className={`nav-item ${activeRoute === 'agendamentos' ? 'active' : ''}`}
+              onClick={() => navigate('/agendamentos')}
+            >
+              <span className="nav-text">Agendamentos</span>
+            </button>
+          </nav>
+
+          {/* Perfil e Ações */}
+          <div className="header-actions">
+            {user && (
+              <>
+                <div className="profile-dropdown-container" ref={dropdownRef}>
+                  <div
+                    className={`user-profile ${showHelpMenu ? 'active' : ''}`}
+                    onClick={toggleHelpMenu}
+                  >
+                    <div className="user-avatar">👤</div>
+                    <div className="user-info">
+                      <span className="user-name">{user.name || user.email}</span>
+                      <span className="user-role">{user.role?.toUpperCase()}</span>
+                    </div>
+                    <div className={`profile-arrow ${showHelpMenu ? 'rotated' : ''}`}>⌄</div>
+                  </div>
+
+                  {showHelpMenu && (
+                    <div className="help-dropdown">
+                      <div className="dropdown-arrow" />
+                      <div className="dropdown-content">
+                        <button className="help-item" onClick={handleFeedbackClick}>
+                          <span className="help-icon">💬</span>
+                          <div className="help-text">
+                            <span className="help-title">Enviar Feedback</span>
+                            <span className="help-subtitle">Reporte bugs ou sugestões</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  className="logout-btn"
+                  onClick={handleLogout}
+                  title="Sair do sistema"
+                >
+                  <span className="logout-icon">⏻</span>
+                  <span className="logout-text">Sair</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
+      </header>
 
-        {/* Navegação */}
-        <nav className="header-nav" ref={navRef}>
-          {/* Slider */}
-          <div
-            className="nav-slider"
-            style={{
-              left: sliderStyle.left,
-              width: sliderStyle.width
-            }}
-          ></div>
-
-          <button
-            ref={campaignRef}
-            className={`nav-item ${activeRoute === 'campaign' ? 'active' : ''}`}
-            onClick={() => navigate('/campaign')}
-          >
-            <span className="nav-text">Campanhas</span>
-          </button>
-          <button
-            ref={agendRef}
-            className={`nav-item ${activeRoute === 'agendamentos' ? 'active' : ''}`}
-            onClick={() => navigate('/agendamentos')}
-          >
-            <span className="nav-text">Agendamentos</span>
-          </button>
-        </nav>
-
-        {/* Perfil e Logout */}
-        <div className="header-actions">
-          {user ? (
-            <>
-              <div className="user-profile">
-                <div className="user-avatar">
-                  <span>👤</span>
-                </div>
-                <div className="user-info">
-                  <span className="user-name">
-                    {user.name ? user.name : user.email}
-                  </span>
-                  <span className="user-role">
-                    {user.role ? user.role.toUpperCase() : ''}
-                  </span>
-                </div>
-              </div>
-              <button className="logout-btn" onClick={handleLogout} title="Sair do sistema">
-                <span className="logout-icon">⏻</span>
-                <span className="logout-text">Sair</span>
-              </button>
-            </>
-          ) : (
-            // Se não houver user, você pode exibir login/link ou nada
-            <></>
-          )}
-        </div>
-      </div>
-    </header>
+      {showHelpModal && <HelpModal onClose={() => setShowHelpModal(false)} />}
+    </>
   );
 };
 

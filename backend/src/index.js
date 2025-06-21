@@ -1,7 +1,11 @@
+// backend/src/index.js (homologação corrigido)
 require('dotenv').config();
 
 console.log('### index.js foi carregado ###');
-console.log('Variáveis: PORT=', process.env.PORT, ' FRONTEND_URL=', process.env.FRONTEND_URL);
+console.log(
+  'Variáveis: PORT=', process.env.PORT,
+  ' FRONTEND_URL=', process.env.FRONTEND_URL
+);
 
 const express = require('express');
 const cors = require('cors');
@@ -12,7 +16,7 @@ const app = express();
 // Configurar variáveis de ambiente
 const PORT = parseInt(process.env.PORT, 10) || 3001;
 const HOST = '0.0.0.0';
-// Somente para CORS: URL do frontend (não usar como rota no Express)
+// Somente para CORS: URL do frontend
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // CORS: permitir apenas requisições do seu frontend
@@ -22,7 +26,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
-
 
 // Body parsers
 app.use(express.json());
@@ -34,7 +37,7 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 // Health check
 app.get('/health', (req, res) => res.status(200).json({ status: 'UP' }));
 
-// Rotas da API (sem usar FRONTEND_URL como prefixo)
+// Rotas públicas
 try {
   console.log('Registrando /api/auth');
   const authRouter = require('./routes/auth');
@@ -44,6 +47,16 @@ try {
   console.error('Erro ao registrar /api/auth:', e);
 }
 
+try {
+  console.log('Registrando /api/feedback');
+  const feedbackRouter = require('./routes/feedback');
+  app.use('/api/feedback', feedbackRouter);
+  console.log('  OK /api/feedback');
+} catch (e) {
+  console.error('Erro ao registrar /api/feedback:', e);
+}
+
+// Rotas protegidas de campanhas
 try {
   console.log('Registrando /api/campaigns');
   const authenticateToken = require('./utils/authMiddleware');
