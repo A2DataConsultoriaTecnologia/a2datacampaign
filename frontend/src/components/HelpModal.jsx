@@ -1,8 +1,9 @@
+// frontend/src/components/HelpModal.jsx
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import '../styles/HelpModal.css';
 
-const FeedbackModal = ({ onClose }) => {
+export default function HelpModal({ onClose }) {
   const [reportType, setReportType] = useState('bug');
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState('');
@@ -11,9 +12,27 @@ const FeedbackModal = ({ onClose }) => {
   const [error, setError] = useState(null);
 
   const reportTypes = [
-    { id: 'bug', label: 'Reportar Bug', icon: '🐛', description: 'Encontrou algum problema ou erro?', placeholder: 'Descreva o problema...' },
-    { id: 'feature', label: 'Nova Funcionalidade', icon: '💡', description: 'Sugira melhorias', placeholder: 'Descreva a funcionalidade...' },
-    { id: 'praise', label: 'Elogio', icon: '❤️', description: 'Compartilhe sua experiência', placeholder: 'Conte-nos o que você mais gosta...' },
+    {
+      id: 'bug',
+      label: 'Reportar Bug',
+      icon: '🐛',
+      description: 'Encontrou algum problema ou erro?',
+      placeholder: 'Descreva o problema que você encontrou, quando aconteceu e quais passos levaram ao erro...'
+    },
+    {
+      id: 'feature',
+      label: 'Nova Funcionalidade',
+      icon: '💡',
+      description: 'Sugira melhorias para a plataforma',
+      placeholder: 'Descreva a funcionalidade que você gostaria de ver implementada e como ela ajudaria no seu dia a dia...'
+    },
+    {
+      id: 'praise',
+      label: 'Elogio',
+      icon: '❤️',
+      description: 'Compartilhe sua experiência positiva',
+      placeholder: 'Conte-nos o que você mais gosta na plataforma e como ela tem ajudado nas suas campanhas de WhatsApp...'
+    }
   ];
 
   const selectedType = reportTypes.find(t => t.id === reportType);
@@ -29,22 +48,23 @@ const FeedbackModal = ({ onClose }) => {
     }
 
     setLoading(true);
+
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL}/feedback`, {
+      await api.post('/feedback', {
         type: reportType,
         message: message.trim(),
-        email: email.trim() || null,
+        email: email.trim() || null
       });
 
       setSuccess('Feedback enviado com sucesso!');
       setTimeout(() => {
+        setReportType('bug');
         setMessage('');
         setEmail('');
-        setReportType('bug');
         onClose();
       }, 1500);
     } catch (err) {
-      console.error(err);
+      console.error('Erro ao enviar feedback:', err);
       setError('Erro ao enviar feedback. Tente novamente.');
     } finally {
       setLoading(false);
@@ -54,18 +74,21 @@ const FeedbackModal = ({ onClose }) => {
   return (
     <div className="feedback-modal-overlay" onClick={onClose}>
       <div className="feedback-modal-content" onClick={e => e.stopPropagation()}>
+        {/* Header */}
         <div className="feedback-modal-header">
           <div className="feedback-modal-title-section">
             <h2 className="feedback-modal-title">Enviar Feedback</h2>
             <p className="feedback-modal-subtitle">
-              Sua opinião é muito importante para melhorarmos nossa plataforma
+              Sua opinião é muito importante para melhorarmos nossa plataforma de campanhas WhatsApp
             </p>
           </div>
           <button className="feedback-modal-close" onClick={onClose}>✕</button>
         </div>
 
+        {/* Body */}
         <div className="feedback-modal-body">
           <form onSubmit={handleSubmit} className="feedback-form">
+            {/* Tipo de feedback */}
             <div className="feedback-type-section">
               <label className="feedback-section-label">Tipo de Feedback</label>
               <div className="feedback-type-grid">
@@ -94,6 +117,7 @@ const FeedbackModal = ({ onClose }) => {
               </div>
             </div>
 
+            {/* E-mail opcional */}
             <div className="feedback-form-group">
               <label className="feedback-label">
                 E-mail (opcional)
@@ -109,6 +133,7 @@ const FeedbackModal = ({ onClose }) => {
               />
             </div>
 
+            {/* Mensagem */}
             <div className="feedback-form-group">
               <label className="feedback-label">
                 Descrição<span className="feedback-label-required">*</span>
@@ -124,17 +149,37 @@ const FeedbackModal = ({ onClose }) => {
               <div className="feedback-char-count">{message.length} caracteres</div>
             </div>
 
-            {error && <div className="feedback-message feedback-error">❌ {error}</div>}
-            {success && <div className="feedback-message feedback-success">✅ {success}</div>}
+            {/* Mensagens de status */}
+            {error && (
+              <div className="feedback-message feedback-error">
+                <span className="feedback-message-icon">❌</span> {error}
+              </div>
+            )}
+            {success && (
+              <div className="feedback-message feedback-success">
+                <span className="feedback-message-icon">✅</span> {success}
+              </div>
+            )}
           </form>
         </div>
 
+        {/* Footer com botões */}
         <div className="feedback-modal-footer">
           <div className="feedback-form-actions">
-            <button type="button" onClick={onClose} className="feedback-button feedback-button-secondary" disabled={loading}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="feedback-button feedback-button-secondary"
+              disabled={loading}
+            >
               Cancelar
             </button>
-            <button type="submit" onClick={handleSubmit} className="feedback-button feedback-button-primary" disabled={loading || !message.trim()}>
+            <button
+              type="submit"
+              onClick={handleSubmit}
+              className="feedback-button feedback-button-primary"
+              disabled={loading || !message.trim()}
+            >
               {loading ? 'Enviando...' : 'Enviar Feedback'}
             </button>
           </div>
@@ -142,6 +187,4 @@ const FeedbackModal = ({ onClose }) => {
       </div>
     </div>
   );
-};
-
-export default FeedbackModal;
+}
