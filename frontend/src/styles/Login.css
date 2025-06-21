@@ -405,3 +405,11 @@ html, body {
     padding: 24px 16px;
   }
 }
+
+.version-label {
+  text-align: center;
+  font-size: 14px;
+  color: #8EA3BF;
+  margin-top: 16px;
+  user-select: none;
+}

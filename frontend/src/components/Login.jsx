@@ -145,6 +145,7 @@ export default function Login() {
                 : 'Entrar'}
             </button>
           </form>
+          <div className="version-label">v1.0</div>
         </div>
       </div>
     </>
