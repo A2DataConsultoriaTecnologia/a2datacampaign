@@ -252,7 +252,7 @@ export default function CampaignForm({ onCreated }) {
 
         <div className={styles.inputGroup}>
           <label className={styles.label}>Título:</label>
-          <input type="text" value={title} onChange={e => setTitle(e.target.value)} className={styles.input} disabled={loading} placeholder="Digite o título" required />
+          <input type="text" value={title} onChange={e => setTitle(e.target.value)} className={styles.input} disabled={loading} placeholder="Digite o título da campanha" required />
         </div>
 
         <div className={styles.inputGroup}>
