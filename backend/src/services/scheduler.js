@@ -7,115 +7,115 @@ const { sendWhatsAppMessage, sendWhatsAppImage } = require('./zapiService');
 
 async function checkAndSendCampaigns() {
   const now = new Date();
-  console.log(`[Scheduler] Verificando campanhas em ${now.toISOString()}`);
   const client = await pool.connect();
+
   try {
-    const res = await client.query(
-      `SELECT id, title, message 
-       FROM campaigns 
-       WHERE status = $1 AND scheduled_at <= $2`,
+    // Inicia transação e bloqueia campanhas pendentes
+    await client.query('BEGIN');
+    const { rows: campaigns } = await client.query(
+      `SELECT id, title, message
+       FROM campaigns
+       WHERE status = $1 AND scheduled_at <= $2
+       FOR UPDATE SKIP LOCKED`,
       ['SCHEDULED', now]
     );
-    const campaigns = res.rows;
+
     if (campaigns.length === 0) {
+      await client.query('COMMIT');
       console.log('[Scheduler] Nenhuma campanha pendente.');
       return;
     }
-    for (const campaign of campaigns) {
-      console.log(`[Scheduler] Enviando campanha id=${campaign.id}, title="${campaign.title}"`);
-      // Buscar números associados
-      const resNums = await client.query(
-        `SELECT id, phone_number 
-         FROM campaign_numbers 
-         WHERE campaign_id = $1`,
-        [campaign.id]
+
+    // Marca como 'SENDING'
+    const ids = campaigns.map(c => c.id);
+    await client.query(
+      `UPDATE campaigns
+       SET status = 'SENDING', updated_at = NOW()
+       WHERE id = ANY($1)`,
+      [ids]
+    );
+    await client.query('COMMIT');
+
+    // Processa cada campanha
+    for (const camp of campaigns) {
+      console.log(`[Scheduler] Enviando campanha id=${camp.id}`);
+
+      // Buscar números e mídias
+      const { rows: numbers } = await pool.query(
+        `SELECT id, phone_number FROM campaign_numbers WHERE campaign_id = $1`,
+        [camp.id]
       );
-      const numbers = resNums.rows;
-      // Buscar mídias associadas
-      const resMedia = await client.query(
-        `SELECT id, filename, filepath, mime_type 
-         FROM campaign_media 
-         WHERE campaign_id = $1`,
-        [campaign.id]
+      const { rows: medias } = await pool.query(
+        `SELECT filename, filepath, mime_type FROM campaign_media WHERE campaign_id = $1`,
+        [camp.id]
       );
-      const medias = resMedia.rows;
-      for (const cn of numbers) {
+
+      // Função de retry
+      async function trySend(fnSend, ...args) {
+        const maxAttempts = 3;
+        for (let i = 1; i <= maxAttempts; i++) {
+          const { success, data, error } = await fnSend(...args);
+          if (success) return { success, data };
+          console.warn(`  [Tentativa ${i}/${maxAttempts} falhou]`, error || data);
+          await new Promise(r => setTimeout(r, 1000 * i));
+        }
+        return { success: false };
+      }
+
+      // Envio por número
+      for (const { id: numId, phone_number } of numbers) {
         let overallSuccess = true;
         let lastMessageId = null;
-        // Enviar mídias se existirem
+
         if (medias.length > 0) {
           for (let i = 0; i < medias.length; i++) {
             const m = medias[i];
-            try {
-              let absolutePath;
-              if (path.isAbsolute(m.filepath)) {
-                absolutePath = m.filepath;
-              } else {
-                absolutePath = path.join(__dirname, '..', '..', m.filepath);
-              }
-              const fileBuffer = fs.readFileSync(absolutePath);
-              const base64 = `data:${m.mime_type};base64,${fileBuffer.toString('base64')}`;
-              const caption = (i === 0)
-                ? `*${campaign.title || ''}*\n\n${campaign.message || ''}`
-                : '';
-              const { success, data, error } = await sendWhatsAppImage(cn.phone_number, base64, caption);
-              lastMessageId = data?.messageId || data?.id || null;
-              if (!success) {
-                overallSuccess = false;
-                console.warn(`  [!] Falha ao enviar imagem p/ ${cn.phone_number}:`, error || data);
-              } else {
-                console.log(`  [+] Imagem enviada p/ ${cn.phone_number}, messageId=${lastMessageId}`);
-              }
-            } catch (err) {
-              overallSuccess = false;
-              console.error(`  [!] Erro ao processar mídia p/ ${cn.phone_number}:`, err);
-            }
+            const absolutePath = path.isAbsolute(m.filepath)
+              ? m.filepath
+              : path.join(__dirname, '..', '..', m.filepath);
+            const buffer = fs.readFileSync(absolutePath);
+            const base64 = `data:${m.mime_type};base64,${buffer.toString('base64')}`;
+            const caption = i === 0
+              ? `*${camp.title}*\n\n${camp.message}`
+              : '';
+
+            const res = await trySend(sendWhatsAppImage, phone_number, base64, caption);
+            if (res.success) lastMessageId = res.data?.messageId;
+            else overallSuccess = false;
           }
+        } else {
+          const fullText = `*${camp.title}*\n\n${camp.message}`;
+          const res = await trySend(sendWhatsAppMessage, phone_number, fullText);
+          if (res.success) lastMessageId = res.data?.messageId;
+          else overallSuccess = false;
         }
-        // Enviar texto se não houver mídia
-        if (medias.length === 0) {
-          try {
-            const fullText = `*${campaign.title || ''}*\n\n${campaign.message || ''}`;
-            const { success, data, error } = await sendWhatsAppMessage(cn.phone_number, fullText);
-            lastMessageId = data?.messageId || data?.id || null;
-            if (!success) {
-              overallSuccess = false;
-              console.warn(`  [!] Falha ao enviar texto p/ ${cn.phone_number}:`, error || data);
-            } else {
-              console.log(`  [+] Texto enviado p/ ${cn.phone_number}, messageId=${lastMessageId}`);
-            }
-          } catch (err) {
-            overallSuccess = false;
-            console.error(`  [!] Erro ao enviar texto p/ ${cn.phone_number}:`, err);
-          }
-        }
-        // Atualizar status em campaign_numbers
-        try {
-          const nowSentAll = new Date();
-          await client.query(
-            `UPDATE campaign_numbers 
-             SET sent_at = $1, success = $2, message_id = $3
-             WHERE id = $4`,
-            [nowSentAll, overallSuccess, lastMessageId, cn.id]
-          );
-        } catch (err) {
-          console.error(`  [!] Erro ao atualizar status no DB para ${cn.phone_number}:`, err);
-        }
-      }
-      // Atualizar status da campanha
-      try {
-        await client.query(
-          `UPDATE campaigns 
-           SET status = $1, updated_at = NOW() 
-           WHERE id = $2`,
-          ['SENT', campaign.id]
+
+        // Atualiza status do envio
+        await pool.query(
+          `UPDATE campaign_numbers
+           SET sent_at = NOW(), success = $1, message_id = $2
+           WHERE id = $3`,
+          [overallSuccess, lastMessageId, numId]
         );
-        console.log(`[Scheduler] Campanha id=${campaign.id} marcada como SENT.`);
-      } catch (err) {
-        console.error(`[Scheduler] Erro ao atualizar status da campanha id=${campaign.id}:`, err);
       }
+
+      // Atualiza status da campanha
+      const { rows: countRows } = await pool.query(
+        `SELECT COUNT(*)::INT AS ct FROM campaign_numbers WHERE campaign_id = $1 AND success = true`,
+        [camp.id]
+      );
+      const anySuccess = countRows[0].ct > 0;
+      await pool.query(
+        `UPDATE campaigns
+         SET status = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [anySuccess ? 'SENT' : 'FAILED', camp.id]
+      );
+
+      console.log(`[Scheduler] Campanha ${camp.id} finalizada: status ${anySuccess ? 'SENT' : 'FAILED'}`);
     }
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('[Scheduler] Erro geral ao processar campanhas:', err);
   } finally {
     client.release();
@@ -124,9 +124,10 @@ async function checkAndSendCampaigns() {
 
 function startScheduler() {
   cron.schedule('* * * * *', () => {
+    console.log(`[Scheduler] Verificando campanhas em ${new Date().toISOString()}`);
     checkAndSendCampaigns();
   });
-  console.log('[Scheduler] Iniciado: checando campanhas a cada 1 minuto.');
+  console.log('[Scheduler] Agendado: checando a cada 1 minuto.');
 }
 
 module.exports = startScheduler;
