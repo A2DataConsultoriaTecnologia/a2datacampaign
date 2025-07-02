@@ -192,7 +192,9 @@ export default function CampaignForm({ onCreated }) {
       const oldFile = imageFiles[croppingIndex];
       const newFile = new File([blob], oldFile.name, { type: blob.type });
       setImageFiles(prev => {
-        const arr = [...prev]; arr[croppingIndex] = newFile; return arr;
+        const arr = [...prev];
+        arr[croppingIndex] = newFile;
+        return arr;
       });
       setSuccess('Imagem recortada com sucesso!');
     } catch {
@@ -204,11 +206,15 @@ export default function CampaignForm({ onCreated }) {
   };
   const handleCancelCrop = () => setShowCropModal(false);
 
+  // Sempre FormData
   const handleSubmit = async e => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-    const rawList = numbersText.split(/\r?\n/).map(s => s.trim()).filter(s => s);
+    const rawList = numbersText
+      .split(/\r?\n/)
+      .map(s => s.trim())
+      .filter(s => s);
     if (!title || !message || !scheduledAt || !rawList.length) {
       setError('Preencha todos os campos corretamente.');
       return;
@@ -221,23 +227,24 @@ export default function CampaignForm({ onCreated }) {
 
     try {
       setLoading(true);
-      let res;
-      if (imageFiles.length) {
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('message', message);
-        formData.append('scheduledAt', selectedDate.toISOString());
-        formData.append('numbers', JSON.stringify(rawList));
-        imageFiles.forEach(file => formData.append('images', file));
-        res = await createCampaign(formData);
-      } else {
-        res = await createCampaign({ title, message, scheduledAt: selectedDate.toISOString(), numbers: rawList });
-      }
+
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('message', message);
+      formData.append('scheduledAt', selectedDate.toISOString());
+      formData.append('numbers', JSON.stringify(rawList));
+      imageFiles.forEach(file => formData.append('images', file));
+
+      await createCampaign(formData);
+
       // reset
-      setTitle(''); setMessage(''); setScheduledAt('');
-      clearFileInput(); clearImages();
+      setTitle('');
+      setMessage('');
+      setScheduledAt('');
+      clearFileInput();
+      clearImages();
       setSuccess('Campanha criada com sucesso!');
-      onCreated && onCreated(res.data);
+      onCreated && onCreated();
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao criar campanha');
     } finally {
@@ -252,99 +259,253 @@ export default function CampaignForm({ onCreated }) {
 
         <div className={styles.inputGroup}>
           <label className={styles.label}>Título:</label>
-          <input type="text" value={title} onChange={e => setTitle(e.target.value)} className={styles.input} disabled={loading} placeholder="Digite o título da campanha" required />
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            className={styles.input}
+            placeholder="Digite o título da campanha"
+            disabled={loading}
+            required
+          />
         </div>
 
         <div className={styles.inputGroup}>
           <label className={styles.label}>Mensagem:</label>
-          <textarea value={message} onChange={e => setMessage(e.target.value)} className={styles.textarea} rows={4} disabled={loading} placeholder="Digite a mensagem que será enviada" required />
+          <textarea
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            className={styles.textarea}
+            rows={4}
+            placeholder="Digite a mensagem que será enviada"
+            disabled={loading}
+            required
+          />
         </div>
 
         <div className={styles.imageAttachmentSection}>
           <label className={styles.imageAttachmentLabel}>Anexar imagens (opcional):</label>
-          <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handleImageUpload} disabled={loading} className={styles.hiddenFileInput} />
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            onChange={handleImageUpload}
+            disabled={loading}
+            className={styles.hiddenFileInput}
+          />
           <div className={styles.imageButtonsContainer}>
-            <button type="button" onClick={handleClickSelectImages} disabled={loading || imageFiles.length >= MAX_IMAGES} className={styles.attachButton}>
-              <span className={styles.buttonIcon}>📎</span> Escolher Imagem
+            <button
+              type="button"
+              onClick={handleClickSelectImages}
+              disabled={loading || imageFiles.length >= MAX_IMAGES}
+              className={styles.attachButton}
+            >
+              Escolher Imagem
             </button>
           </div>
-          {imageFiles.length > 0 && <div className={styles.imageCounter}>{imageFiles.length}/{MAX_IMAGES}</div>}
-          <small className={styles.helpText}>Você pode anexar até {MAX_IMAGES} imagem (JPEG/PNG/WebP), até 5MB.</small>
+          {imageFiles.length > 0 && (
+            <div className={styles.imageCounter}>{imageFiles.length}/{MAX_IMAGES}</div>
+          )}
+          <small className={styles.helpText}>
+            Você pode anexar até {MAX_IMAGES} imagem (JPEG/PNG/WebP), até 5MB.
+          </small>
           {imagePreviews.length > 0 && (
             <div className={styles.imagePreviewContainer}>
               {imagePreviews.map((url, idx) => (
                 <div key={idx} className={styles.imagePreviewItem}>
                   <img src={url} alt={`Preview ${idx+1}`} className={styles.imagePreview} />
                   <div className={styles.previewOverlay}>
-                    <button type="button" onClick={() => handleStartCrop(idx)} disabled={loading} className={styles.cropOverlayButton}>✂️</button>
-                    <button type="button" onClick={() => removeImageAtIndex(idx)} disabled={loading} className={styles.removeImageButton}>✖</button>
+                    <button
+                      type="button"
+                      onClick={() => handleStartCrop(idx)}
+                      disabled={loading}
+                      className={styles.cropOverlayButton}
+                    >
+                      ✂️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeImageAtIndex(idx)}
+                      disabled={loading}
+                      className={styles.removeImageButton}
+                    >
+                      ✖
+                    </button>
                   </div>
                 </div>
               ))}
-              <button type="button" onClick={clearImages} disabled={loading} className={styles.clearAllImagesButton}>Limpar imagem</button>
+              <button
+                type="button"
+                onClick={clearImages}
+                disabled={loading}
+                className={styles.clearAllImagesButton}
+              >
+                Limpar imagem
+              </button>
             </div>
           )}
         </div>
 
         <div className={styles.inputGroup}>
           <label className={styles.label}>Data e hora de envio:</label>
-          <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} className={styles.input} disabled={loading} min={getLocalMinDateTime()} required />
+          <input
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={e => setScheduledAt(e.target.value)}
+            className={styles.input}
+            min={getLocalMinDateTime()}
+            disabled={loading}
+            required
+          />
         </div>
 
         <div className={styles.inputGroup}>
           <label className={styles.label}>Como deseja adicionar os números?</label>
           <div className={styles.radioGroup}>
-            <label className={styles.radioLabel}><input type="radio" value="manual" checked={importMode==='manual'} onChange={e=>setImportMode(e.target.value)} disabled={loading} /> <span className={styles.radioText}>Digitação manual</span></label>
-            <label className={styles.radioLabel}><input type="radio" value="csv" checked={importMode==='csv'} onChange={e=>setImportMode(e.target.value)} disabled={loading} /> <span className={styles.radioText}>Importar arquivo CSV/XLSX</span></label>
+            <label className={styles.radioLabel}>
+              <input
+                type="radio"
+                value="manual"
+                checked={importMode === 'manual'}
+                onChange={e => setImportMode(e.target.value)}
+                disabled={loading}
+              />
+              Digitação manual
+            </label>
+            <label className={styles.radioLabel}>
+              <input
+                type="radio"
+                value="csv"
+                checked={importMode === 'csv'}
+                onChange={e => setImportMode(e.target.value)}
+                disabled={loading}
+              />
+              Importar arquivo CSV/XLSX
+            </label>
           </div>
         </div>
-        {importMode==='manual' ? (
+
+        {importMode === 'manual' ? (
           <div className={styles.inputGroup}>
             <label className={styles.label}>Números de WhatsApp (um por linha):</label>
-            <textarea value={numbersText} onChange={e=>setNumbersText(e.target.value)} className={styles.textarea} rows={4} disabled={loading} placeholder="558398633059" required />
+            <textarea
+              value={numbersText}
+              onChange={e => setNumbersText(e.target.value)}
+              className={styles.textarea}
+              rows={4}
+              placeholder="558398633059"
+              disabled={loading}
+              required
+            />
           </div>
         ) : (
           <div className={styles.inputGroup}>
             <label className={styles.label}>Arquivo CSV/XLSX:</label>
             <div className={styles.fileInputWrapper}>
-              <input ref={csvFileInputRef} type="file" accept=".csv,.xlsx" onChange={handleFileUpload} className={styles.fileInput} disabled={loading} id="csvFile" />
-              <label htmlFor="csvFile" className={styles.fileLabel}>Escolher arquivo</label>
-              <a href="/template.csv" download className={styles.templateLink}>
-                <span className={styles.downloadIcon}>⬇️</span>
-                Baixar modelo
-              </a>
-              {numbersText && <button type="button" onClick={clearFileInput} className={styles.clearButton} disabled={loading}>Limpar</button>}
+              <input
+                ref={csvFileInputRef}
+                id="csvFile"
+                type="file"
+                accept=".csv,.xlsx"
+                onChange={handleFileUpload}
+                className={styles.fileInput}
+                disabled={loading}
+                required
+              />
+              <label htmlFor="csvFile" className={styles.fileLabel}>
+                Escolher arquivo
+              </label>
+              {numbersText && (
+                <button
+                  type="button"
+                  onClick={clearFileInput}
+                  className={styles.clearButton}
+                  disabled={loading}
+                >
+                  Limpar
+                </button>
+              )}
             </div>
-            <small className={styles.helpText}>Cada linha deve conter apenas os dígitos do telefone (ex: 558398633059).</small>
+            <small className={styles.helpText}>
+              Cada linha deve conter apenas os dígitos do telefone (ex: 558398633059).
+            </small>
             {numbersText && (
               <div className={styles.previewSection}>
                 <label className={styles.label}>Números importados:</label>
-                <textarea value={numbersText} onChange={e=>setNumbersText(e.target.value)} className={styles.textarea} rows={4} disabled={loading} />
+                <textarea
+                  value={numbersText}
+                  className={styles.textarea}
+                  rows={4}
+                  disabled
+                />
               </div>
             )}
           </div>
         )}
 
-        {error && <div className={styles.messageBox}><p className={styles.errorMessage}>❌ {error}</p></div>}
-        {success && <div className={styles.messageBox}><p className={styles.successMessage}>✅ {success}</p></div>}
+        {error && (
+          <div className={styles.messageBox}>
+            <p className={styles.errorMessage}>❌ {error}</p>
+          </div>
+        )}
+        {success && (
+          <div className={styles.messageBox}>
+            <p className={styles.successMessage}>✅ {success}</p>
+          </div>
+        )}
 
-        <button type="submit" disabled={loading} className={styles.submitButton}>{loading ? 'Criando campanha...' : 'Criar Campanha'}</button>
+        <button
+          type="submit"
+          disabled={loading}
+          className={styles.submitButton}
+        >
+          {loading ? 'Criando campanha...' : 'Criar Campanha'}
+        </button>
       </form>
 
-      {showCropModal && croppingIndex!==null && (
+      {showCropModal && croppingIndex !== null && (
         <div className={styles.cropModalOverlay}>
           <div className={styles.cropModalContent}>
             <h3 className={styles.cropModalTitle}>Recortar Imagem</h3>
             <div className={styles.cropContainer}>
-              <Cropper image={imagePreviews[croppingIndex]} crop={crop} zoom={zoom} aspect={1} onCropChange={setCrop} onCropComplete={onCropComplete} onZoomChange={setZoom} />
+              <Cropper
+                image={imagePreviews[croppingIndex]}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
             </div>
             <div className={styles.cropControls}>
               <label className={styles.zoomLabel}>Zoom:</label>
-              <input type="range" min={1} max={3} step={0.1} value={zoom} onChange={e=>setZoom(Number(e.target.value))} className={styles.zoomRange} />
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.1}
+                value={zoom}
+                onChange={e => setZoom(Number(e.target.value))}
+                className={styles.zoomRange}
+              />
             </div>
             <div className={styles.cropButtons}>
-              <button type="button" onClick={handleConfirmCrop} className={styles.confirmCropButton}>Confirmar</button>
-              <button type="button" onClick={handleCancelCrop} className={styles.cancelCropButton}>Cancelar</button>
+              <button
+                type="button"
+                onClick={handleConfirmCrop}
+                className={styles.confirmCropButton}
+              >
+                Confirmar
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelCrop}
+                className={styles.cancelCropButton}
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
