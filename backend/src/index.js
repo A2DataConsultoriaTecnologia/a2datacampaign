@@ -15,8 +15,9 @@ const path = require('path');
 const app = express();
 
 // Configurar CORS
+const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: allowedOrigin,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -69,6 +70,7 @@ const HOST = '0.0.0.0';
 
 app.listen(PORT, HOST, () => {
   console.log(`Backend rodando na porta ${PORT} (host ${HOST})`);
+  console.log(`CORS habilitado para: ${allowedOrigin}`);
 
   if (process.env.RUN_SCHEDULER === 'true') {
     try {
